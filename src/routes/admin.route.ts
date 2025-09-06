@@ -7,4 +7,5 @@ authRoute.post("/admin-signup",adminRegisterValidation,handleValidationErrors,re
 authRoute.post("/admin-login",login);
 authRoute.get("/verify-email",verifyEmail);
 authRoute.post("/verify-phone",verifyPhone);
+// authRoute.post("/resend-verification",)
 export default authRoute;

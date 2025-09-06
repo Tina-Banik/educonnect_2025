@@ -6,6 +6,8 @@ import { prismaClient } from "../../db/db.connection";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { create_accessToken, create_refreshToken } from "../middlewares/jwt.middleware";
 import { initiateOtp } from "../../services/otp.service";
+import { config } from "../../types/type";
+import { sendVerificationEmail } from "../../utils/mailer";
 /**here I write the code for the new admin */
 export const register = asyncHandler(async(req:Request,res:Response)=>{
     try {
@@ -52,7 +54,8 @@ export const register = asyncHandler(async(req:Request,res:Response)=>{
             }
         });
         console.log("The new user is :", newUser);
-        console.log(`Verify email: http://localhost:3000/verify-email?token=${emailToken}`);
+        await sendVerificationEmail(newUser.email,emailToken);
+        console.log(`Verify email: ${config.baseUrl}/${config.apiUrl}/admin/verify-email?token=${emailToken}`);
         if(newUser){
             return successResponse(res,"Admin is registered successfully",{uid: newUser.uid,email: newUser.email,role: newUser.role})
         }else{
@@ -98,6 +101,11 @@ export const login = asyncHandler(async(req:Request,res:Response)=>{
     console.log(`The access token is : ${accessToken}`);
     const refreshToken = await create_refreshToken(loggedUser.id,loggedUser.email);
     console.log(`The refresh token is : ${refreshToken}`);
+    /**save refresh token in the database */
+    await prismaClient.user.update({
+        where:{uid:loggedUser.uid},
+        data:{refreshToken:refreshToken}
+    })
     /**here I write the code for the cookies for the access token */
     const options = {
         httpOnly:true,
@@ -139,7 +147,6 @@ export const verifyEmail = asyncHandler(async(req:Request,res:Response)=>{
     })
     return successResponse(res,"Email Verified Successfully.")
 })
-
 /**verify the profile */
 export const verifyPhone = asyncHandler(async(req:Request,res:Response)=>{
     const {phoneNumber,otp} = req.body;

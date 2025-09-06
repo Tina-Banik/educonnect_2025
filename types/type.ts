@@ -5,7 +5,14 @@ interface AppConfig{
     accessKey:string;
     accessKeyExpireTime:string;
     refreshKey:string;
-    refreshKeyExpire:string
+    refreshKeyExpire:string;
+    baseUrl:string,
+    //SMTP DECLARE FOR NODE MAILER
+    smtpHost:string;
+    smtpPort:number | string;
+    email_user:string;
+    email_pass:string;
+    email_from:string
 }
 
 export const config:AppConfig = {
@@ -14,5 +21,11 @@ export const config:AppConfig = {
     accessKey: process.env.ACCESS_KEY  || "",
     accessKeyExpireTime: process.env.ACCESS_KEY_EXPIRE || "",
     refreshKey: process.env.REFRESH_KEY || "",
-    refreshKeyExpire: process.env.REFRESH_KEY_EXPIRE || ""
+    refreshKeyExpire: process.env.REFRESH_KEY_EXPIRE || "",
+    baseUrl:process.env.BASE_URL || "",
+    smtpHost:process.env.SMTP_HOST || "smtp.gmail.com",
+    smtpPort:process.env.SMTP_PORT || "",
+    email_user:process.env.SMTP_USER || "",
+    email_pass:process.env.SMTP_PASS || "",
+    email_from:process.env.EMAIL_FROM || ""
 }
