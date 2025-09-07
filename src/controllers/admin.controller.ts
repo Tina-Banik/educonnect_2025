@@ -8,6 +8,7 @@ import { create_accessToken, create_refreshToken } from "../middlewares/jwt.midd
 import { initiateOtp } from "../../services/otp.service";
 import { config } from "../../types/type";
 import { sendVerificationEmail } from "../../utils/mailer";
+import { TokenPayload } from "../../types/express";
 /**here I write the code for the new admin */
 export const register = asyncHandler(async(req:Request,res:Response)=>{
     try {
@@ -20,6 +21,14 @@ export const register = asyncHandler(async(req:Request,res:Response)=>{
         console.log("This email is already exists:", userExists);
         if(userExists){
             return unauthorizedResponse(res,"User is already exists")
+        }
+        /**if the phone number is already exists */
+        const phoneExists = await prismaClient.user.findFirst({
+            where:{phoneNumber:phoneNumber}
+        });
+        console.log("The phone number is already exists:", phoneExists);
+        if(phoneExists){
+            return unauthorizedResponse(res,"Phone number is already exists");
         }
         /***here I write the code for the hash passwords */
         const hashPassword =  hashSync(password,10);
@@ -55,7 +64,7 @@ export const register = asyncHandler(async(req:Request,res:Response)=>{
         });
         console.log("The new user is :", newUser);
         await sendVerificationEmail(newUser.email,emailToken);
-        console.log(`Verify email: ${config.baseUrl}/${config.apiUrl}/admin/verify-email?token=${emailToken}`);
+        console.log(`Verify email: ${config.baseUrl}${config.apiUrl}/admin/verify-email?token=${emailToken}`);
         if(newUser){
             return successResponse(res,"Admin is registered successfully",{uid: newUser.uid,email: newUser.email,role: newUser.role})
         }else{
@@ -104,7 +113,7 @@ export const login = asyncHandler(async(req:Request,res:Response)=>{
     /**save refresh token in the database */
     await prismaClient.user.update({
         where:{uid:loggedUser.uid},
-        data:{refreshToken:refreshToken}
+        data:{refreshToken}
     })
     /**here I write the code for the cookies for the access token */
     const options = {
@@ -147,44 +156,128 @@ export const verifyEmail = asyncHandler(async(req:Request,res:Response)=>{
     })
     return successResponse(res,"Email Verified Successfully.")
 })
-/**verify the profile */
+/**verify the verifyPhone 
+ * Must check if user exists, OTP is valid, not expired, and phone isn't already verified * 
+ */
+// export const verifyPhone = asyncHandler(async(req:Request,res:Response)=>{
+//     const {phoneNumber,otp} = req.body;
+//     console.log(`The phone number is : ${phoneNumber}`);
+//     if(!phoneNumber){
+//         return errorResponse(res,"Phone number is not correct.")
+//     }
+//     /** if the user is found */
+//     const user = await prismaClient.user.findUnique({
+//         where:{phoneNumber}
+//     })
+//     if(!user){
+//         return errorResponse(res,"User not found");
+//     }
+//     if(user.phoneVerified){
+//         return successResponse(res,"Phone Already Verified");
+//     }
+//     /** if the otp expired */
+//     if(!user.otpCode || !user.otpExpiry || user.otpExpiry < new Date()){
+//         return errorResponse(res,"OTP EXPIRED !!")
+//     }
+//     /**IF THE ATTEMPTS IS MORE THAN 3 */
+//     if(user.otpAttempts >=3){
+//         return errorResponse(res,"Too many failed attempts");
+//     }
+//     // Ques :  resend otp 
+//     /** check the otp code  */
+//     if(user.otpCode !== otp){
+//         await prismaClient.user.update({
+//             where:{phoneNumber},
+//             data:{
+//                 phoneVerified: true,
+//                 otpCode: null,
+//                 otpExpiry:null,
+//                 otpAttempts: 0,
+//             }
+//         });
+//     }
+//     return successResponse(res,"Phone verified successfully");
+// })
 export const verifyPhone = asyncHandler(async(req:Request,res:Response)=>{
-    const {phoneNumber,otp} = req.body;
-    console.log(`The phone number is : ${phoneNumber}`);
+    const{phoneNumber,otp} = req.body;
+    console.log(`The phone number is ${phoneNumber} and the otp: ${otp}`);
     if(!phoneNumber){
-        return errorResponse(res,"Phone number is not correct.")
+        return errorResponse(res,"Phone number is not correct");
     }
-    /** if the user is found */
+    /**here we write the function for finding the user with their phone number */
     const user = await prismaClient.user.findUnique({
         where:{phoneNumber}
-    })
+    });
+    console.log(`The user with their phone number: ${JSON.stringify(user?.phoneNumber)}`);
     if(!user){
-        return errorResponse(res,"User not found");
+        return unauthorizedResponse(res,"User not found.");
     }
-    await initiateOtp(phoneNumber); // here I sent the otp.
-    if(user.phoneVerified){
-        return successResponse(res,"Phone Already Verified");
+    /**if the phone is already verified, exists early */
+    if(user?.phoneVerified){
+        return unauthorizedResponse(res,"Phone is already verified");
+    };
+    /** if the otp is already expired or not */
+    if(!user.otpExpiry || !user.otpCode || user.otpExpiry < new Date()){
+        return errorResponse(res,"OTP has expired");
     }
-    /** if the otp expired */
-    if(!user.otpCode || !user.otpExpiry || user.otpExpiry < new Date()){
-        return errorResponse(res,"OTP EXPIRED !!")
-    }
-    /**IF THE ATTEMPTS IS MORE THAN 3 */
-    if(user.otpAttempts >=3){
+    /**if the otp has two many attempts */
+    if(user.otpAttempts >= 3){
         return errorResponse(res,"Too many failed attempts");
     }
-    // Ques :  resend otp 
-    /** check the otp code  */
+    /**if the user enters the otp and the otp code is not same then it executes this functions */
     if(user.otpCode !== otp){
         await prismaClient.user.update({
             where:{phoneNumber},
             data:{
-                phoneVerified: true,
-                otpCode: null,
-                otpExpiry:null,
-                otpAttempts: 0,
+                otpAttempts: user.otpAttempts + 1
             }
         });
+        return errorResponse(res,"INVALID OTP");
     }
-    return successResponse(res,"Phone verified successfully");
+    /**if the otp is correct */
+    await prismaClient.user.update({
+        where:{phoneNumber},
+        data:{
+            phoneVerified:true,
+            otpCode:null,
+            otpExpiry:null,
+            otpAttempts:0
+        }
+    });
+    return successResponse(res,"Phone number is verified successfully..");
+})
+/**send the otp to phone 
+ * Must check if user exists and phone is already verified before sending OTP
+ * */ 
+export const sendOtpPhone = asyncHandler(async(req:Request,res:Response)=>{
+    const {phoneNumber} = req.body;
+    console.log(`The phone number is : ${phoneNumber}`);
+    if(!phoneNumber){
+        return errorResponse(res,"Phone number is required");
+    }
+    /**now I find out the user's phone number */
+    const user = await prismaClient.user.findUnique({
+        where:{phoneNumber}
+    });
+    console.log(`The user details in which we send the otp: ${user}`)
+    if(!user){
+        return unauthorizedResponse(res,"User is not found");
+    }
+    /**If phone is verified successfully, there is no need to send the otp */
+    if(user.phoneVerified){
+        return  successResponse(res,"Phone verified successfully");
+    }
+    /**if the phone number is verified successfully then we initialize the otp, for that I write the separate functions in services/otp.service.ts*/
+    await initiateOtp(phoneNumber); // generate the otp here
+    return successResponse(res,"OTP sent successfully");
+})
+/**here I am writing the functions about creating the access token using the refresh token */
+export const refreshAccessToken = asyncHandler(async(req:Request,res:Response)=>{
+    console.log("The req.decode is :", req.decode);
+    /**here I display the login info of the user */
+    const loginInfo:any = await prismaClient.user.findUnique({
+        where:{email:(req.decode as TokenPayload).email}
+    });
+    console.log("The login info is true when the access token needs to created:" ,loginInfo);
+    return successResponse(res,"The access token is refreshed",{_newAccessToken:await create_accessToken(loginInfo?.uid,loginInfo?.email,loginInfo?.role)});
 })

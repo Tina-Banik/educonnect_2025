@@ -2,6 +2,7 @@ import  jwt from "jsonwebtoken";
 // const jwt = require("jsonwebtoken");
 import crypto from "crypto"
 import { config } from "../../types/type";
+import { prismaClient } from "../../db/db.connection";
 function generateToken(length:number):string{
     return crypto.randomBytes(length).toString("hex");
 }
