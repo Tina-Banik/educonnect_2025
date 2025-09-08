@@ -7,8 +7,9 @@ import { asyncHandler } from "../../utils/asyncHandler";
 import { create_accessToken, create_refreshToken } from "../middlewares/jwt.middleware";
 import { initiateOtp } from "../../services/otp.service";
 import { config } from "../../types/type";
-import { sendVerificationEmail } from "../../utils/mailer";
+import { sendNotificationEmail, sendVerificationEmail } from "../../utils/mailer";
 import { TokenPayload } from "../../types/express";
+import { create } from "domain";
 /**here I write the code for the new admin */
 export const register = asyncHandler(async(req:Request,res:Response)=>{
     try {
@@ -281,3 +282,83 @@ export const refreshAccessToken = asyncHandler(async(req:Request,res:Response)=>
     console.log("The login info is true when the access token needs to created:" ,loginInfo);
     return successResponse(res,"The access token is refreshed",{_newAccessToken:await create_accessToken(loginInfo?.uid,loginInfo?.email,loginInfo?.role)});
 })
+/**here I am write the functions about the create  notifications */
+export const createNotifications = asyncHandler(async(req:Request,res:Response)=>{
+    const {uid:tokenUserId , role:tokenUserRole} = (req.decode as TokenPayload) || undefined;
+    const {userId,type,title,message} = req.body;
+    console.log(`The user id is : ${userId}, the type is:${type} ,the title is:${title}, the message is:${message}`);
+
+    /**body userId matches the tokenUserId */
+    if(userId !== tokenUserId && tokenUserRole !== "admin"){
+        return unauthorizedResponse(res,"Unauthorized user to create the notifications");
+    }
+    /**create notification function */
+    const newNotification = await prismaClient.notification.create({
+        data:{
+            userId, type, title, message
+        }
+    });
+    console.log("The new notifications are:", newNotification);
+    /**fetch user email */
+    const fetchUserEmail = await prismaClient.user.findUnique({
+        where:{uid:userId}
+    });
+    console.log(`The fetch user email is: ${fetchUserEmail?.email}`);
+    //here I send the sendNotifications Email
+    if(fetchUserEmail?.email){
+        await sendNotificationEmail(
+            fetchUserEmail.email,
+            `${title}`,
+            message
+        )
+    }
+        return successResponse(res,"Notifications created successfully",{data:newNotification})
+})
+/** */
+export const updateKycDetails = asyncHandler(async(req:Request,res:Response)=>{
+    // return successResponse(res,"The kyc is uploaded..");
+    // const {uid} = req.decode as TokenPayload;
+    // console.log(`The user id is : ${uid}`);
+    // const instituteType = req.body;
+    // console.log(`The institute type is ${instituteType}`);
+    // const files:any = req.files as Record<string, Express.Multer.File[]>;
+    // console.log(`The files are: ${files}`);
+    // const kycData :any= {
+    //     userId:uid,instituteType
+    // };
+    // Object.keys(files).forEach((key)=>{
+    //     kycData[key] !== files[key][0]?.path;
+    // })
+    // const savedKyc = await prismaClient.kyc.upsert({
+    //     where:{userId:uid},
+    //     update:kycData,
+    //     create:kycData
+    // });
+    return successResponse(res,"KYC updated successfully");
+})
+/**here I write the functions about the  */
+/**here I write the functions for fetching all the notifications */
+// export const getNotificationsUser = asyncHandler(async(req:Request,res:Response)=>{
+//     const userId = req.params;
+//     console.log('The user id is valid for fetching the user id :', userId);
+//     /**fetch all the notifications */
+//     const fetchNotification = await prismaClient.notification.findMany({
+//         where:{userId},
+//         orderBy: {createdAt: "desc"}
+//     })
+//     console.log(`The notifications are : ${fetchNotification}`);
+//     return successResponse(res,"All the notifications are displayed");
+// })
+/**here I write the code for the notifications mark as read */
+// export const markAsRead = asyncHandler(async(req:Request,res:Response)=>{
+//     // return successResponse(res,"Notifications has been read");
+//     const {notificationId} = req.body;
+//     console.log('The notifications id for the mark as read :', notificationId);
+//     /**here I write the functions as mark as updated */
+//     const notificationMarkAsRead = await prismaClient.notification.update({
+//         where:{id:notificationId},
+//         data:{read:true}
+//     });
+//     console.log(`The notifications are marked as read: ${notificationMarkAsRead}`);
+//     return successResponse(res,"The notifications are read",{data:notificationMarkAsRead});
+// })

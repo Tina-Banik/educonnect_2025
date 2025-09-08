@@ -53,9 +53,27 @@ export const sendVerificationEmail = async(to:string, token:string)=>{
   `;
   await transporter.sendMail({
     from: `"E-technology" <${config.email_from}>`,
-    to:`${config.email_user}`,
+    // to:`${config.email_user}`,
+    to,
     subject:"Attach The Cover Letter",
     html:htmlContent,
   }).catch(error=>{console.error(error.message)});
   console.log("The email has been sent");
+}
+
+/**here I write the code for the generic email notification sender */
+export const sendNotificationEmail = async(to:string, title:string,message:string)=>{
+  const htmlContent = ` <div style="font-family: Arial, sans-serif; background:#f9fafb; padding:20px;">
+      <div style="max-width:600px; margin:0 auto; background:#fff; border-radius:8px; padding:24px; box-shadow:0 2px 6px rgba(0,0,0,.1);">
+        <h2 style="margin:0 0 16px 0; color:#111827;">${title}</h2>
+        <p style="color:#374151; font-size:14px; line-height:1.5;">${message}</p>
+        <p style="font-size:12px; color:#9ca3af; margin-top:24px;">This is an automated notification from EduConnect.</p>
+      </div>
+    </div>`;
+    await transporter.sendMail({
+      from:`"E-Technology" <${config.email_from}>`,
+      to,
+      subject:title,
+      html:htmlContent,
+    })
 }

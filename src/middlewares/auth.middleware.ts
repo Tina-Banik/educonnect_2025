@@ -34,3 +34,25 @@ export const verifyRefreshToken = asyncHandler(async(req:Request,res:Response,ne
         return unauthorizedResponse(res,"JWT Expired");
     }
 });
+
+/**here I write the code verify the access token */
+export const verifyAccessToken = asyncHandler(async(req:Request,res:Response,next:NextFunction)=>{
+    console.log("The req.headers for the access token:", req.headers);
+    console.log("the req.cookies for the access token:", req.cookies);
+    let access_key = config.accessKey;
+    console.log("The access key is :", access_key);
+    /**if the access key is present then we pass the access token in the headers */
+    if(access_key){
+        const access_token = req.headers._accesstoken || req.cookies.accessToken;
+        console.log("The access token that comes form the headers:", access_token);
+        if(!access_token){
+            return errorResponse(res,"The auth header is missing");
+        }
+        const decodedToken = jwt.verify(access_token,access_key);
+        console.log('The decoded token is :', decodedToken);
+        req.decode = decodedToken;
+        console.log(`The req.decode token is : ${req.decode}`);
+        next();
+    }
+    return errorResponse(res,"Invalid Token");
+})
