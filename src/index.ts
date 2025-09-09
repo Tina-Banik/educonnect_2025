@@ -2,10 +2,13 @@ import express from 'express';
 import { config } from '../types/type';
 /**import the admin route */
 import authRoute from './routes/admin.route';
+import path from 'path';
 const app = express();
 /**require the body parser */
 app.use(express.urlencoded({extended:true}));
 app.use(express.json());
+/**for hiding the actual path */
+app.use(express.static(path.resolve(__dirname,'public/uploads')))
 /**here I define the admin route */
 const adminPath = '/admin';
 app.use(`${config.apiUrl}${adminPath}`,authRoute);

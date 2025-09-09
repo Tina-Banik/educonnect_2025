@@ -5,8 +5,8 @@ import { adminRegisterValidation } from "../../utils/adminValidation";
 import { handleValidationErrors } from "../middlewares/validationHandler";
 import { verifyAccessToken, verifyRefreshToken } from "../middlewares/auth.middleware";
 import { notificationValidation } from "../../utils/notificationVlidation";
-import { kycFileFields } from "../../utils/kycFileField";
-import { kycUpload } from "../../file/fileUpload";
+import { kycUploadAll } from "../../utils/kycFileField";
+// import { dynamicKycUpload} from "../../utils/kycFileField";
 authRoute.post("/admin-signup",adminRegisterValidation,handleValidationErrors,register);
 authRoute.post("/admin-login",login);
 authRoute.get("/verify-email",verifyEmail);
@@ -25,5 +25,5 @@ authRoute.post('/create-notification',notificationValidation,verifyAccessToken,c
 // authRoute.patch('/:notificationId/read',markAsRead);
 
 /**here I write the route for the kyc upload */
-authRoute.post('/kyc/upload', kycUpload.fields(kycFileFields),updateKycDetails);
+authRoute.post('/kyc/upload',verifyAccessToken,kycUploadAll, updateKycDetails);
 export default authRoute;

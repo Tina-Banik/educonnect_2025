@@ -10,6 +10,7 @@ import { config } from "../../types/type";
 import { sendNotificationEmail, sendVerificationEmail } from "../../utils/mailer";
 import { TokenPayload } from "../../types/express";
 import { create } from "domain";
+import { uploadCloudinary } from "../../utils/cloudinary";
 /**here I write the code for the new admin */
 export const register = asyncHandler(async(req:Request,res:Response)=>{
     try {
@@ -314,28 +315,63 @@ export const createNotifications = asyncHandler(async(req:Request,res:Response)=
     }
         return successResponse(res,"Notifications created successfully",{data:newNotification})
 })
-/** */
-export const updateKycDetails = asyncHandler(async(req:Request,res:Response)=>{
+/** here I write the code for the update the kyc details for the admin according to the institute type. KYC can be files,pdf,images*/
+export const updateKycDetails = asyncHandler(async(req:Request,res:Response)=>{ 
     // return successResponse(res,"The kyc is uploaded..");
-    // const {uid} = req.decode as TokenPayload;
-    // console.log(`The user id is : ${uid}`);
-    // const instituteType = req.body;
-    // console.log(`The institute type is ${instituteType}`);
-    // const files:any = req.files as Record<string, Express.Multer.File[]>;
-    // console.log(`The files are: ${files}`);
-    // const kycData :any= {
-    //     userId:uid,instituteType
-    // };
-    // Object.keys(files).forEach((key)=>{
-    //     kycData[key] !== files[key][0]?.path;
-    // })
-    // const savedKyc = await prismaClient.kyc.upsert({
-    //     where:{userId:uid},
-    //     update:kycData,
-    //     create:kycData
+   const {uid} = req.decode as TokenPayload;
+   console.log(`The user id is : ${uid}`);  
+   const {instituteType} = req.body;
+   console.log('The institute type is:' , instituteType);
+   if(!instituteType){
+        return errorResponse(res,"Institute type is missing..");
+   }
+   const files:any = req.files as {[fieldName:string]:Express.Multer.File[]};
+  let requiredFields:string[]= [];
+   if(instituteType == 'individual_tutor'){        
+        requiredFields = ["tutorGovtId","educationalCertificate","tutorPhoto","addressProof"];
+        for(const fields of requiredFields){
+            if(!(req.files as any)[fields]?.[0]){
+                return errorResponse(res, `Missing required file: ${fields}`);
+            }
+        }
+   }else{
+     requiredFields = ["instituteRegCertificate","gstCertificate","adminGovtId","adminGovtPhoto","establishmentProof"];
+    for(const fields of requiredFields){
+        if(!(req.files as any)[fields]?.[0]){
+             return errorResponse(res, `Missing required file: ${fields}`); 
+        }
+    }
+   }
+   
+   // for the files
+//    const file:any = req.files as Record<string, Express.Multer.File[]>;
+//     console.log(`The Files are : ${file}`) 
+    /**saved the kycData */  
+    const kycData:any = {
+        userId:uid,instituteType,
+    };
+    console.log('The kyc data is : ', kycData);
+    
+    // Object.keys((req.files as any)).forEach((key)=>{
+    //     kycData[key] = (req.files as any)[key][0]?.path;
     // });
-    return successResponse(res,"KYC updated successfully");
-})
+      // 🔥 Upload each file to Cloudinary instead of saving local path
+        for(const key of Object.keys(files)){
+            const filePath = files[key][0]?.path;
+            if(filePath){
+                const uploaded = await uploadCloudinary(filePath);
+                kycData[key] = uploaded?.url;
+            }
+        }
+    /**after we saved the kyc data */
+    const savedKycData = await prismaClient.kyc.upsert({
+        where:{userId:uid},
+        update:kycData,
+        create:kycData
+    });
+    console.log('The kyc details are saved:', JSON.stringify(savedKycData));
+    return successResponse(res,"KYC Details are uploaded successfully");
+}) 
 /**here I write the functions about the  */
 /**here I write the functions for fetching all the notifications */
 // export const getNotificationsUser = asyncHandler(async(req:Request,res:Response)=>{
@@ -348,7 +384,7 @@ export const updateKycDetails = asyncHandler(async(req:Request,res:Response)=>{
 //     })
 //     console.log(`The notifications are : ${fetchNotification}`);
 //     return successResponse(res,"All the notifications are displayed");
-// })
+// }) 
 /**here I write the code for the notifications mark as read */
 // export const markAsRead = asyncHandler(async(req:Request,res:Response)=>{
 //     // return successResponse(res,"Notifications has been read");
@@ -362,3 +398,18 @@ export const updateKycDetails = asyncHandler(async(req:Request,res:Response)=>{
 //     console.log(`The notifications are marked as read: ${notificationMarkAsRead}`);
 //     return successResponse(res,"The notifications are read",{data:notificationMarkAsRead});
 // })
+
+// return[
+//           { name: "tutorGovtId", maxCount:1},
+//           {name: "educationalCertificate",maxCount:1},
+//           {name:"tutorPhoto",maxCount:1},
+//           {name:"addressProof",maxCount:1}
+//       ]
+//    }else{
+//         return[
+//             {name:"instituteRegCertificate",maxCount:1},
+//             {name:"gstCertificate",maxCount:1},
+//             {name:"adminGovtId",maxCount:1},
+//             {name:"adminGovtPhoto",maxCount:1},
+//             {name:"establishmentProof",maxCount:1}
+//         ]

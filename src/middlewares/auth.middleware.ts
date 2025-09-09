@@ -49,10 +49,9 @@ export const verifyAccessToken = asyncHandler(async(req:Request,res:Response,nex
             return errorResponse(res,"The auth header is missing");
         }
         const decodedToken = jwt.verify(access_token,access_key);
-        console.log('The decoded token is :', decodedToken);
+        console.log('The decoded token is for the access token :', decodedToken);
         req.decode = decodedToken;
-        console.log(`The req.decode token is : ${req.decode}`);
+        console.log("The req.decode token is for the access token: " , req.decode);
         next();
     }
-    return errorResponse(res,"Invalid Token");
 })

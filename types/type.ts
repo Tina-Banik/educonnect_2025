@@ -12,7 +12,12 @@ interface AppConfig{
     smtpPort:number | string;
     email_user:string;
     email_pass:string;
-    email_from:string
+    email_from:string;
+    // cloudinary settings
+    cloudinaryCloudName:string;
+    cloudinaryApiKey:string;
+    cloudinaryApiSecret:string;
+    cloudinaryUrl:string
 }
 
 export const config:AppConfig = {
@@ -27,5 +32,9 @@ export const config:AppConfig = {
     smtpPort:process.env.SMTP_PORT || "",
     email_user:process.env.SMTP_USER || "",
     email_pass:process.env.SMTP_PASS || "",
-    email_from:process.env.EMAIL_FROM || ""
+    email_from:process.env.EMAIL_FROM || "",
+    cloudinaryCloudName:process.env.CLOUDINARY_CLOUD_NAME || "",
+    cloudinaryApiKey:process.env.CLOUDINARY_API_KEY || "",
+    cloudinaryApiSecret:process.env.CLOUDINARY_API_SECRET || "",
+    cloudinaryUrl:process.env.CLOUDINARY_URL || ""
 }
