@@ -1,4 +1,4 @@
-import { Request,Response } from "express"
+import { NextFunction, Request,Response } from "express"
 import crypto from "crypto"
 import { errorResponse, invalidToken, successResponse, unauthorizedResponse } from "../exceptions/responseHandler"
 import {hashSync,compareSync} from "bcrypt"
@@ -9,8 +9,9 @@ import { initiateOtp } from "../../services/otp.service";
 import { config } from "../../types/type";
 import { sendNotificationEmail, sendVerificationEmail } from "../../utils/mailer";
 import { TokenPayload } from "../../types/express";
-import { create } from "domain";
 import { uploadCloudinary } from "../../utils/cloudinary";
+import { promises as fs} from "fs";
+import { calculateProfileCompletion, getNextSteps } from "../../utils/profileCompletion";
 /**here I write the code for the new admin */
 export const register = asyncHandler(async(req:Request,res:Response)=>{
     try {
@@ -318,61 +319,183 @@ export const createNotifications = asyncHandler(async(req:Request,res:Response)=
 /** here I write the code for the update the kyc details for the admin according to the institute type. KYC can be files,pdf,images*/
 export const updateKycDetails = asyncHandler(async(req:Request,res:Response)=>{ 
     // return successResponse(res,"The kyc is uploaded..");
+     /**now here I write this condition that to ensure that the logged-in user can only upload KYC documents for the instituteType they are assigned to. If they pass a mismatched instituteType in the query, reject the request.
+//  */
    const {uid} = req.decode as TokenPayload;
-   console.log(`The user id is : ${uid}`);  
-   const {instituteType} = req.body;
-   console.log('The institute type is:' , instituteType);
-   if(!instituteType){
-        return errorResponse(res,"Institute type is missing..");
-   }
-   const files:any = req.files as {[fieldName:string]:Express.Multer.File[]};
-  let requiredFields:string[]= [];
-   if(instituteType == 'individual_tutor'){        
-        requiredFields = ["tutorGovtId","educationalCertificate","tutorPhoto","addressProof"];
-        for(const fields of requiredFields){
-            if(!(req.files as any)[fields]?.[0]){
-                return errorResponse(res, `Missing required file: ${fields}`);
-            }
-        }
-   }else{
-     requiredFields = ["instituteRegCertificate","gstCertificate","adminGovtId","adminGovtPhoto","establishmentProof"];
-    for(const fields of requiredFields){
-        if(!(req.files as any)[fields]?.[0]){
-             return errorResponse(res, `Missing required file: ${fields}`); 
-        }
+   console.log("The user id is :", uid);
+   const {instituteType} = req.query;
+   console.log("The institute type is:", instituteType);
+    if(!instituteType){
+        return errorResponse(res,"Institute type is missing");
     }
-   }
-   
-   // for the files
-//    const file:any = req.files as Record<string, Express.Multer.File[]>;
-//     console.log(`The Files are : ${file}`) 
-    /**saved the kycData */  
+//    const user = await prismaClient.user.findUnique({where:{uid}});
+//    console.log('The user institute type they are assigned to:', user?.instituteType);
+//     if(user?.instituteType !== instituteType){
+//             return errorResponse(res, `You are not authorized to upload KYC for '${instituteType}'. Your assigned institute type is '${user?.instituteType}'.`)
+//     }
+//     /**here I take the file object */
+    const files:any = req.files as Record<string,Express.Multer.File[]>;
+    /**here I am taking the kyc data */
     const kycData:any = {
         userId:uid,instituteType,
+        instituteRegCertificate : files?.instituteRegCertificate?.[0].path || "",
+        gstCertificate: files?.gstCertificate?.[0].path || "",
+        adminGovtId: files?.adminGovtId?.[0].path ||"",
+        adminGovtPhoto: files?.adminGovtPhoto?.[0].path || "",
+        establishmentProof: files?.establishmentProof?.[0].path ||  "",
+        tutorGovtId: files?.tutorGovtId?.[0].path || "",
+        educationalCertificate: files?.educationalCertificate?.[0].path || "",
+        tutorPhoto: files?.tutorPhoto?.[0].path || "",
+        addressProof: files?.addressProof?.[0].path || ""
     };
-    console.log('The kyc data is : ', kycData);
-    
-    // Object.keys((req.files as any)).forEach((key)=>{
-    //     kycData[key] = (req.files as any)[key][0]?.path;
-    // });
-      // 🔥 Upload each file to Cloudinary instead of saving local path
+    // const kycData:Record<string, string>={
+    //     userId:uid, 
+    //     instituteType: instituteType as string
+    // }
+    // console.log("The kyc data is ", JSON.stringify(kycData));
+    // if(files && typeof files === 'object')
+    // {
+        // Object.keys(files).forEach((key)=>{
+        //     kycData[key] = files[key][0]?.path;
+        //  });
         for(const key of Object.keys(files)){
             const filePath = files[key][0]?.path;
             if(filePath){
                 const uploaded = await uploadCloudinary(filePath);
-                kycData[key] = uploaded?.url;
+                if(uploaded?.url){
+                        kycData[key] = uploaded?.url;
+                        await fs.unlink(filePath);
+                }
+                
             }
         }
-    /**after we saved the kyc data */
-    const savedKycData = await prismaClient.kyc.upsert({
-        where:{userId:uid},
+        
+    // }
+    const savedKyc =  await prismaClient.kyc.upsert({
+        where:{userId:uid},  
         update:kycData,
         create:kycData
     });
-    console.log('The kyc details are saved:', JSON.stringify(savedKycData));
+    console.log("The saved kyc details are:", JSON.stringify(savedKyc)); 
     return successResponse(res,"KYC Details are uploaded successfully");
 }) 
-/**here I write the functions about the  */
+/** here I write the function for displaying the profile*/
+export const getProfile = asyncHandler(async(req:Request,res:Response,next:NextFunction)=>{
+    // return successResponse(res,"Profile has been fetched successfully.");
+    const {uid} = req.decode as TokenPayload ; // here I fetch the user details from JWT token 
+    console.log('The user id is:', uid); 
+    /**after fetching the user id from the JWT token here I display the user profile and fetch the data from database*/
+    const profile = await prismaClient.user.findUnique({
+        where:{uid},
+        select:{
+            instituteName:true,
+            instituteType:true,
+            fullName:true,
+            email:true,
+            phoneNumber:true,
+            instituteAddress:true,
+            city:true,
+            state:true,
+            postalCode:true
+        }
+    });
+    console.log('The user profile is :', profile);
+    if(!profile){
+        return errorResponse(res,"Profile is not fetched successfully.");
+    }
+    return successResponse(res,"Profile information is fetched successfully",profile);
+})
+/**here I write the code for update the user details and if KYC is rejected */
+export const updateProfile = asyncHandler(async(req:Request,res:Response)=>{
+    if(req.method === 'PUT' || req.method === 'PATCH'){
+        const {uid} = req.decode as TokenPayload;
+    console.log('The user id is:', uid);
+    const {instituteName,instituteType,fullName,email,phoneNumber,instituteAddress,city,state,postalCode} = req.body;
+    console.log(`The instituteName is :${instituteName}, instituteType is :${instituteType}, adminFullName is :${fullName}, email:${email},phoneNumber:${phoneNumber}, instituteAddress:${instituteAddress}, city:${city}, state:${state}, postalCode:${postalCode}`)
+    /**fetch the user details */
+    const user = await prismaClient.user.findUnique({where:{uid}});
+    if(!user){
+        return errorResponse(res,"User not found");
+    }
+    const requestedData:Record<string,any>= {
+        fullName,email,phoneNumber,instituteAddress,city,state,postalCode
+    };
+    console.log('The updates are:', requestedData);
+    if(user.kycStatus === "Rejected"){
+        requestedData.instituteName = instituteName,
+        requestedData.instituteType = instituteType,
+        requestedData.email = email
+    }
+    /**find Only the changed fields */
+    const updates:Record<string,any> = {};
+    for(const key in requestedData){
+            if(requestedData !== undefined && requestedData[key] !== user[key as keyof typeof user]){
+                updates[key] = requestedData[key];
+            }
+    }
+    /**nothing changed */
+    if(Object.keys(updates).length ===0){
+        return unauthorizedResponse(res,"Nothing Changes Detected here.")
+    }
+    const updated = await prismaClient.user.update({
+        where:{uid},
+        data:updates,
+        select:{
+                instituteName:true,
+                instituteType:true,
+                fullName:true,
+                email:true,
+                phoneNumber:true,
+                instituteAddress:true,
+                city:true,
+                state:true,
+                postalCode:true
+        }
+    });
+    console.log('The update details are:', updated);
+    return successResponse(res,"Profile updated is successfully",updated);
+    }
+    
+})
+/** here I write the functions for getting the dashboard */
+export const getDashboard = asyncHandler(async(req:Request,res:Response)=>{
+    const {uid} = req.decode as TokenPayload;
+    console.log('The user dashboard is:', uid);
+    /**here I display all the user details */
+    const user = await prismaClient.user.findUnique({
+        where:{uid},
+        select:{
+            kycStatus:true,
+            fullName:true,
+            phoneNumber:true,
+            instituteAddress:true,
+            city:true,
+            state:true,
+            postalCode:true,
+            rejectionReason:true
+        }
+    });
+    console.log('The user dashboard keys details are:', user);
+    const profileCompletion = calculateProfileCompletion(user);
+    console.log('The profile calculations are :', profileCompletion);
+    /**here I write the code for the notifications api */
+    const notifications = await prismaClient.notification.findMany({
+        where:{userId:uid},
+        orderBy:{createdAt:"desc"},
+        take:5
+    });
+    console.log('The notifications are displayed from the api:', notifications);
+    /**here I show the dashboard */
+    const dashboard = {
+        accountStatus: user?.kycStatus,
+        profileCompletion,
+        notifications,
+        rejectionReason: user?.kycStatus === "Rejected" ? user.rejectionReason : null,
+        nextSteps: getNextSteps(user?.kycStatus ?? "Pending")
+    };
+    console.log('The dashboards are :', dashboard);
+    return successResponse(res,"Dashboard are loaded", dashboard);
+})
 /**here I write the functions for fetching all the notifications */
 // export const getNotificationsUser = asyncHandler(async(req:Request,res:Response)=>{
 //     const userId = req.params;

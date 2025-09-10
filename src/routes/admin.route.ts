@@ -1,11 +1,11 @@
 import {Router} from "express"
 const authRoute = Router();
-import {  createNotifications, login, refreshAccessToken, register, sendOtpPhone, updateKycDetails, verifyEmail, verifyPhone} from "../controllers/admin.controller";
+import {  createNotifications, getDashboard, getProfile, login, refreshAccessToken, register, sendOtpPhone, updateKycDetails, updateProfile, verifyEmail, verifyPhone} from "../controllers/admin.controller";
 import { adminRegisterValidation } from "../../utils/adminValidation";
 import { handleValidationErrors } from "../middlewares/validationHandler";
 import { verifyAccessToken, verifyRefreshToken } from "../middlewares/auth.middleware";
 import { notificationValidation } from "../../utils/notificationVlidation";
-import { kycUploadAll } from "../../utils/kycFileField";
+import { checkInstituteType, dynamicUpload } from "../../utils/kycFileField";
 // import { dynamicKycUpload} from "../../utils/kycFileField";
 authRoute.post("/admin-signup",adminRegisterValidation,handleValidationErrors,register);
 authRoute.post("/admin-login",login);
@@ -25,5 +25,12 @@ authRoute.post('/create-notification',notificationValidation,verifyAccessToken,c
 // authRoute.patch('/:notificationId/read',markAsRead);
 
 /**here I write the route for the kyc upload */
-authRoute.post('/kyc/upload',verifyAccessToken,kycUploadAll, updateKycDetails);
+authRoute.post('/kyc/upload',verifyAccessToken,checkInstituteType,dynamicUpload, updateKycDetails);
+
+/** for the /profile api - (a)get the profile (b)update the profile */
+authRoute.get('/admin-profile',verifyAccessToken,getProfile)
+authRoute.put('/admin-update',verifyAccessToken,updateProfile)
+
+/**for show thw dashboard */
+authRoute.get('/admin-dashboard',verifyAccessToken,getDashboard);
 export default authRoute;
