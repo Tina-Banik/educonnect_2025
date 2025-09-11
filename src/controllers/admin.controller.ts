@@ -11,7 +11,7 @@ import { sendNotificationEmail, sendVerificationEmail } from "../../utils/mailer
 import { uploadCloudinary } from "../../utils/cloudinary";
 import { promises as fs} from "fs";
 import { calculateProfileCompletion, getNextSteps } from "../../utils/profileCompletion";
-import { LogoutPayload, TokenPayload } from "../../types/express";
+import { TokenPayload } from "../../types/express";
 /**here I write the code for the new admin */
 export const register = asyncHandler(async(req:Request,res:Response)=>{
     try {
@@ -277,11 +277,19 @@ export const sendOtpPhone = asyncHandler(async(req:Request,res:Response)=>{
 /**here I am writing the functions about creating the access token using the refresh token */
 export const refreshAccessToken = asyncHandler(async(req:Request,res:Response)=>{
     console.log("The req.decode is :", req.decode);
+    /**the refresh token that comes from the client */
+    const refreshTokenFromClient = req.headers._refreshtoken || req.cookies.refreshToken || (req.headers.authorization?.startsWith("Bearer ")?req.headers.authorization.split(" ")[1] : null);
     /**here I display the login info of the user */
     const loginInfo:any = await prismaClient.user.findUnique({
         where:{email:(req.decode as TokenPayload).email}
     });
     console.log("The login info is true when the access token needs to created:" ,loginInfo);
+    console.log('The refresh token from the loginInfo:',loginInfo?.refreshToken);
+     console.log("Refresh token from client:", refreshTokenFromClient);
+    /**from the loginInfo we fetch the refreshToken */
+    if(!loginInfo.refreshToken || loginInfo.refreshToken !== refreshTokenFromClient){
+        return unauthorizedResponse(res,"Expired Token. Please Login Again");
+    }
     return successResponse(res,"The access token is refreshed",{_newAccessToken:await create_accessToken(loginInfo?.uid,loginInfo?.email,loginInfo?.role)});
 })
 /**here I am write the functions about the create  notifications */
@@ -498,7 +506,7 @@ export const getDashboard = asyncHandler(async(req:Request,res:Response)=>{
 })
 /**here I write the code for the logout */
 export const adminLogout = asyncHandler(async(req:Request,res:Response)=>{
-    const {uid} = req.decode as LogoutPayload;
+    const {uid} = req.decode as TokenPayload;
     console.log('The user id for the logout:', uid);
     const userId = String(uid);
     /**update the database that refresh token is null */
@@ -510,7 +518,9 @@ export const adminLogout = asyncHandler(async(req:Request,res:Response)=>{
         httpOnly:true,
         secure:true,maxAge:20*1000
     };
-    return successResponse(res,"Logged out is successfully.").clearCookie("accessToken",options).clearCookie("refreshToken",{httpOnly:true,secure:true,maxAge: 2*60*1000});
+    res.clearCookie("accessToken",options);
+    res.clearCookie("refreshToken",{httpOnly:true,secure:true,maxAge: 2*60*1000});
+    return successResponse(res,"Logged out is successfully.");
 })
 /**here I write the functions for fetching all the notifications */
 // export const getNotificationsUser = asyncHandler(async(req:Request,res:Response)=>{

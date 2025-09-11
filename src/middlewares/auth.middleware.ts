@@ -4,7 +4,6 @@ import { Response,Request,NextFunction } from "express";
 import { errorResponse, unauthorizedResponse } from "../exceptions/responseHandler";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { error } from "console";
-import { LogoutPayload } from "../../types/express";
 /**
  * Here, I write the code for the verifying the refresh token as I want to create an access token.
  * ACCESS_TOKEN = life span is very short, 
@@ -24,7 +23,7 @@ export const verifyRefreshToken = asyncHandler(async(req:Request,res:Response,ne
             return errorResponse(res,"The auth header is missing");
         }
         /**after passing the refresh token we decode the token */
-        const decodedToken = jwt.verify(refresh_token,refresh_key) as LogoutPayload;
+        const decodedToken = jwt.verify(refresh_token,refresh_key);
         console.log('The decoded token is :', decodedToken);
         /**after decoding the token we attach it to the req.decode */
         req.decode = decodedToken;
