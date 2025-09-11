@@ -11,6 +11,7 @@ const access_key  = config.accessKey || generateToken(64);
 const create_accessToken = async(uid:string,email:string,role:string)=>{
     if(access_key){
         const access_token = await (jwt as any).sign({uid:uid,email:email,role:role==="admin"?"admin":"user"},access_key,{expiresIn:config.accessKeyExpireTime});
+         console.log('creating access token with pay load:', {uid,email});
         return access_token;
     }
 }
@@ -19,6 +20,7 @@ const refresh_key = config.refreshKey || generateToken(64);
 const create_refreshToken = async(uid:string,email:string)=>{
     if(refresh_key){
         const refresh_token = await (jwt as any).sign({uid:uid,email:email},refresh_key,{expiresIn:config.refreshKeyExpire});
+        console.log('creating refresh token with pay load:', {uid,email});
         return refresh_token;
     }
 } 

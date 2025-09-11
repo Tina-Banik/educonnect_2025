@@ -1,6 +1,6 @@
 import {Router} from "express"
 const authRoute = Router();
-import {  createNotifications, getDashboard, getProfile, login, refreshAccessToken, register, sendOtpPhone, updateKycDetails, updateProfile, verifyEmail, verifyPhone} from "../controllers/admin.controller";
+import {  adminLogout, createNotifications, getDashboard, getProfile, login, refreshAccessToken, register, sendOtpPhone, updateKycDetails, updateProfile, verifyEmail, verifyPhone} from "../controllers/admin.controller";
 import { adminRegisterValidation } from "../../utils/adminValidation";
 import { handleValidationErrors } from "../middlewares/validationHandler";
 import { verifyAccessToken, verifyRefreshToken } from "../middlewares/auth.middleware";
@@ -33,4 +33,7 @@ authRoute.put('/admin-update',verifyAccessToken,updateProfile)
 
 /**for show thw dashboard */
 authRoute.get('/admin-dashboard',verifyAccessToken,getDashboard);
+
+/**here I write the code for the logout */
+authRoute.post('/admin-logout', verifyRefreshToken,adminLogout)
 export default authRoute;

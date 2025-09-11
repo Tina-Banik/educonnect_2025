@@ -8,10 +8,10 @@ import { create_accessToken, create_refreshToken } from "../middlewares/jwt.midd
 import { initiateOtp } from "../../services/otp.service";
 import { config } from "../../types/type";
 import { sendNotificationEmail, sendVerificationEmail } from "../../utils/mailer";
-import { TokenPayload } from "../../types/express";
 import { uploadCloudinary } from "../../utils/cloudinary";
 import { promises as fs} from "fs";
 import { calculateProfileCompletion, getNextSteps } from "../../utils/profileCompletion";
+import { LogoutPayload, TokenPayload } from "../../types/express";
 /**here I write the code for the new admin */
 export const register = asyncHandler(async(req:Request,res:Response)=>{
     try {
@@ -111,7 +111,7 @@ export const login = asyncHandler(async(req:Request,res:Response)=>{
     /**now for the logged user we display the code for the refresh and access token */
     const accessToken = await create_accessToken(loggedUser?.uid,loggedUser?.email,loggedUser?.role);
     console.log(`The access token is : ${accessToken}`);
-    const refreshToken = await create_refreshToken(loggedUser.id,loggedUser.email);
+    const refreshToken = await create_refreshToken(loggedUser?.uid,loggedUser.email);  // here I corrected the line
     console.log(`The refresh token is : ${refreshToken}`);
     /**save refresh token in the database */
     await prismaClient.user.update({
@@ -495,6 +495,22 @@ export const getDashboard = asyncHandler(async(req:Request,res:Response)=>{
     };
     console.log('The dashboards are :', dashboard);
     return successResponse(res,"Dashboard are loaded", dashboard);
+})
+/**here I write the code for the logout */
+export const adminLogout = asyncHandler(async(req:Request,res:Response)=>{
+    const {uid} = req.decode as LogoutPayload;
+    console.log('The user id for the logout:', uid);
+    const userId = String(uid);
+    /**update the database that refresh token is null */
+    await prismaClient.user.update({
+        where:{uid : userId},
+        data:{refreshToken:null}
+    })
+     const options = {
+        httpOnly:true,
+        secure:true,maxAge:20*1000
+    };
+    return successResponse(res,"Logged out is successfully.").clearCookie("accessToken",options).clearCookie("refreshToken",{httpOnly:true,secure:true,maxAge: 2*60*1000});
 })
 /**here I write the functions for fetching all the notifications */
 // export const getNotificationsUser = asyncHandler(async(req:Request,res:Response)=>{

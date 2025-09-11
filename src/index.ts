@@ -1,9 +1,12 @@
 import express from 'express';
 import { config } from '../types/type';
+import cookieParser   from "cookie-parser"
 /**import the admin route */
 import authRoute from './routes/admin.route';
 import path from 'path';
 const app = express();
+/**cookie declare */
+app.use(cookieParser());
 /**require the body parser */
 app.use(express.urlencoded({extended:true}));
 app.use(express.json());

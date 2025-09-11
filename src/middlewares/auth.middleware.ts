@@ -4,6 +4,7 @@ import { Response,Request,NextFunction } from "express";
 import { errorResponse, unauthorizedResponse } from "../exceptions/responseHandler";
 import { asyncHandler } from "../../utils/asyncHandler";
 import { error } from "console";
+import { LogoutPayload } from "../../types/express";
 /**
  * Here, I write the code for the verifying the refresh token as I want to create an access token.
  * ACCESS_TOKEN = life span is very short, 
@@ -17,17 +18,17 @@ export const verifyRefreshToken = asyncHandler(async(req:Request,res:Response,ne
     console.log(`The refresh key is : ${refresh_key}`);
     /**if the refresh key is present then wee pass that refresh token int the headers */
     if(refresh_key){
-        const refresh_token = req.headers._refreshtoken || req.cookies.refreshToken;
+        const refresh_token = req.headers._refreshtoken || req.cookies.refreshToken || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.split(" ")[1] : null);
         console.log(`The refresh token that comes from the header is : ${refresh_token}`);
         if(!refresh_token){
             return errorResponse(res,"The auth header is missing");
         }
         /**after passing the refresh token we decode the token */
-        const decodedToken = jwt.verify(refresh_token,refresh_key);
-        console.log(`The decoded token is ${decodedToken}`);
+        const decodedToken = jwt.verify(refresh_token,refresh_key) as LogoutPayload;
+        console.log('The decoded token is :', decodedToken);
         /**after decoding the token we attach it to the req.decode */
         req.decode = decodedToken;
-        console.log(`The req.decode token is: ${(req as any).decode}`);
+        console.log('The req.decode token is: ',(req as any).decode);
         next();
     }
     if(error.name === "TokenExpiredError"){
