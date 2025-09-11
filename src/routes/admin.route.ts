@@ -6,6 +6,7 @@ import { handleValidationErrors } from "../middlewares/validationHandler";
 import { verifyAccessToken, verifyRefreshToken } from "../middlewares/auth.middleware";
 import { notificationValidation } from "../../utils/notificationVlidation";
 import { checkInstituteType, dynamicUpload } from "../../utils/kycFileField";
+import { isAdmin } from "../../utils/roleValidation";
 // import { dynamicKycUpload} from "../../utils/kycFileField";
 authRoute.post("/admin-signup",adminRegisterValidation,handleValidationErrors,register);
 authRoute.post("/admin-login",login);
@@ -25,7 +26,7 @@ authRoute.post('/create-notification',notificationValidation,verifyAccessToken,c
 // authRoute.patch('/:notificationId/read',markAsRead);
 
 /**here I write the route for the kyc upload */
-authRoute.post('/kyc/upload',verifyAccessToken,checkInstituteType,dynamicUpload, updateKycDetails);
+authRoute.post('/kyc/upload',verifyAccessToken,isAdmin,checkInstituteType,dynamicUpload, updateKycDetails);
 
 /** for the /profile api - (a)get the profile (b)update the profile */
 authRoute.get('/admin-profile',verifyAccessToken,getProfile)
