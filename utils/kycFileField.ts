@@ -57,6 +57,21 @@ export const dynamicUpload = async(req:Request,res:Response,next:NextFunction)=>
       next();
    })
 }
+
+/***
+ * export const requireRole = (allowedRoles: string[]) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const { role } = req.decode as TokenPayload;
+    if (!allowedRoles.includes(role)) {
+      return errorResponse(res, `Access denied for role: ${role}`);
+    }
+    next();
+  };
+};
+
+// Usage:
+authRoute.post('/kyc/upload', verifyAccessToken, requireRole(["admin"]), checkInstituteType, dynamicUpload, updateKycDetails);
+ */
 // export const allKycFields:multer.Field[] =[
 //    {name:"instituteRegCertificate",maxCount:1},
 //    {name:"gstCertificate",maxCount:1},

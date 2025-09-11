@@ -6,6 +6,9 @@ import { prismaClient } from "../../db/db.connection";
 function generateToken(length:number):string{
     return crypto.randomBytes(length).toString("hex");
 }
+/***
+ * So no, you don’t need to write a separate query to check if the user is an admin elsewhere. Instead, you should leverage the  from  (which you already populate in ) to enforce role-based access control in your route logic.
+ */
 /**generating the access token */
 const access_key  = config.accessKey || generateToken(64);
 const create_accessToken = async(uid:string,email:string,role:string)=>{
